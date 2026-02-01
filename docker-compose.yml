@@ -1,0 +1,25 @@
+version: "3.9"
+ 
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lol_tracker_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lol_tracker}
+      POSTGRES_USER: ${POSTGRES_USER:-lol_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/sql/init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lol_user} -d ${POSTGRES_DB:-lol_tracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+ 
+volumes:
+  postgres_data:
+ 

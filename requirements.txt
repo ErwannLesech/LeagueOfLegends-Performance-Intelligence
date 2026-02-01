@@ -1,0 +1,43 @@
+# API & HTTP
+requests==2.31.0
+ratelimit==2.2.1
+
+# Data
+pandas==2.2.0
+pydantic==2.6.0
+python-dotenv==1.0.1
+
+# Database
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.28
+
+# Google Sheets
+gspread==6.0.2
+google-auth==2.28.1
+google-auth-oauthlib==1.2.0
+
+# Excel
+openpyxl==3.1.2
+
+# Scheduling (watcher)
+schedule==1.2.1
+
+# Analysis
+numpy==1.26.4
+scipy==1.12.0
+scikit-learn==1.4.1
+matplotlib==3.8.3
+seaborn==0.13.2
+
+# Notebooks
+jupyter==1.0.0
+ipykernel==6.29.3
+
+# Dev
+pytest==8.0.2
+black==24.2.0
+ruff==0.3.0
+
+SQLAlchemy==2.0.28
+dotenv==0.19.0
+pydantic==2.6.0
