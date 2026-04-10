@@ -35,6 +35,17 @@ SCOPES = [
 _client: gspread.Client | None = None
 
 
+def _raise_actionable_api_error(err: Exception) -> None:
+    message = str(err)
+    if "operation is not supported for this document" in message.lower():
+        raise RuntimeError(
+            "Google Sheets push failed: target document is not a native Google Sheet. "
+            "Create/convert the file to Google Sheets format (not .xlsx in Drive), "
+            "then use its ID in GOOGLE_SPREADSHEET_ID and share it with the service account."
+        ) from err
+    raise err
+
+
 def _get_client() -> gspread.Client:
     global _client
     if _client is None:
@@ -90,6 +101,8 @@ def append_game_to_sheets(stats: ParticipantStats) -> None:
     except gspread.exceptions.WorksheetNotFound:
         logger.error(f"Worksheet '{SHEETS_GAME_LOG_TAB}' not found.")
         raise
+    except gspread.exceptions.APIError as e:
+        _raise_actionable_api_error(e)
     except Exception as e:
         logger.error(f"Sheets append failed: {e}")
         raise
@@ -103,9 +116,12 @@ def ensure_headers(tab_name: str = SHEETS_GAME_LOG_TAB) -> None:
     if not GOOGLE_SPREADSHEET_ID:
         return
 
-    client = _get_client()
-    spreadsheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
-    worksheet = spreadsheet.worksheet(tab_name)
+    try:
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        worksheet = spreadsheet.worksheet(tab_name)
+    except gspread.exceptions.APIError as e:
+        _raise_actionable_api_error(e)
 
     headers = [header for _, header, _ in GAME_LOG_COLUMNS]
     first_row = worksheet.row_values(1)
@@ -123,9 +139,12 @@ def bulk_push_games(stats_list: list[ParticipantStats]) -> None:
     if not GOOGLE_SPREADSHEET_ID or not stats_list:
         return
 
-    client = _get_client()
-    spreadsheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
-    worksheet = spreadsheet.worksheet(SHEETS_GAME_LOG_TAB)
+    try:
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
+        worksheet = spreadsheet.worksheet(SHEETS_GAME_LOG_TAB)
+    except gspread.exceptions.APIError as e:
+        _raise_actionable_api_error(e)
 
     rows = []
     for stats in stats_list:
@@ -136,5 +155,8 @@ def bulk_push_games(stats_list: list[ParticipantStats]) -> None:
         ]
         rows.append(row)
 
-    worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+    try:
+        worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+    except gspread.exceptions.APIError as e:
+        _raise_actionable_api_error(e)
     logger.info(f"Bulk pushed {len(rows)} games to Sheets.")

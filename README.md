@@ -120,6 +120,8 @@ python -c "from pipeline.load_db import init_db; init_db(); print('DB OK')"
 4. Ouvrir ton Google Sheet → Partager avec l'email du compte de service (rôle : Éditeur)
 5. Copier l'ID du sheet (dans l'URL : `/d/<ID>/edit`) dans `.env` → `GOOGLE_SPREADSHEET_ID`
 
+⚠️ Le document cible doit être un **Google Sheet natif** (pas un fichier Excel `.xlsx` uploadé dans Drive).
+
 ---
 
 ## Utilisation
