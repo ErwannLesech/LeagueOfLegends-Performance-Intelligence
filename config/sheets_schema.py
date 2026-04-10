@@ -19,6 +19,11 @@ def _round1(v: Any) -> str:
         return ""
     return f"{v:.1f}"
 
+def _round2(v: Any) -> str:
+    if v is None:
+        return ""
+    return f"{v:.2f}"
+
 def _date(v: Any) -> str:
     if v is None:
         return ""
@@ -30,7 +35,7 @@ GAME_LOG_COLUMNS: list[tuple[str, str, Callable | None]] = [
     ("game_date",           "Date",                  _date),
     ("session_id",          "Session #",              None),
     ("champion_name",       "Champion joué",          None),
-    ("opponent_champion",   "Adversaire mid",         None),
+    ("opponent_champion_name", "Adversaire mid",       None),
     ("result",              "Résultat",               None),
     ("duration_min",        "Durée (min)",            _round1),
     ("kda_str",             "K / D / A",              None),
@@ -45,18 +50,12 @@ GAME_LOG_COLUMNS: list[tuple[str, str, Callable | None]] = [
     ("pregame_note",        "Pre-game note",          None),
     ("key_takeaway",        "Retenu (mot-clé)",       None),
     ("game_review",         "Game review",            None),
-    ("patch",               "Patch",                  None),
-    ("opgg_score",          "Score OP.GG",            None),
-    ("snowball_who",        "Qui a snowballé",        None),
     # Auto-computed from Riot API
-    ("damage_dealt",        "Dégâts infligés",        None),
-    ("damage_taken",        "Dégâts reçus",           None),
-    ("gold_earned",         "Gold gagné",             None),
+    ("kda_ratio",           "KDA ratio",              _round2),
+    ("control_wards_purchased", "Control wards achetées", None),
     ("wards_placed",        "Wards posées",           None),
     ("wards_killed",        "Wards tuées",            None),
     ("solo_kills",          "Solo kills",             None),
-    ("turrets_destroyed",   "Tourelles détruites",    None),
-    ("first_blood",         "First blood",            None),
     ("match_id",            "Match ID",               None),  # for deduplication
 ]
 

@@ -201,3 +201,20 @@ def get_games_as_df(limit: Optional[int] = None):
     if limit:
         query += f" LIMIT {limit}"
     return pd.read_sql(query, engine)
+
+
+def get_games_ordered_for_sessions() -> list[tuple[str, datetime]]:
+    """
+    Returns all games ordered by game_date ascending.
+    Used to compute per-day session numbering from chronological history.
+    """
+    engine = _get_engine()
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT match_id, game_date FROM games ORDER BY game_date ASC;")
+            )
+            return [(row[0], row[1]) for row in result]
+    except SQLAlchemyError as e:
+        logger.warning(f"Could not load ordered games for sessions: {e}")
+        return []

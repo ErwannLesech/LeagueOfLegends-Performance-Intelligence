@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any
 
 import gspread
+from gspread.utils import ValueInputOption
 from google.oauth2.service_account import Credentials
 
 from config.settings import (
@@ -24,6 +25,7 @@ from config.settings import (
 )
 from config.sheets_schema import GAME_LOG_COLUMNS
 from collector.models import ParticipantStats
+from pipeline.load_db import get_games_ordered_for_sessions
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,55 @@ def _format_value(val: Any, formatter) -> Any:
     return val
 
 
+def _build_session_map() -> dict[str, tuple[int, int]]:
+    """
+    Build session metadata from DB chronology.
+    Rules:
+      - New day -> session_id = 1, session_position = 1
+      - Same day and gap > 1 hour -> session_id + 1, session_position = 1
+      - Otherwise -> same session_id, session_position + 1
+    """
+    rows = get_games_ordered_for_sessions()
+    if not rows:
+        return {}
+
+    sessions: dict[str, tuple[int, int]] = {}
+    previous_game_date: datetime | None = None
+    current_session_id = 1
+    current_session_position = 1
+
+    for match_id, game_date in rows:
+        if previous_game_date is None:
+            current_session_id = 1
+            current_session_position = 1
+        else:
+            same_day = game_date.date() == previous_game_date.date()
+            if not same_day:
+                current_session_id = 1
+                current_session_position = 1
+            else:
+                gap_seconds = (game_date - previous_game_date).total_seconds()
+                if gap_seconds > 3600:
+                    current_session_id += 1
+                    current_session_position = 1
+                else:
+                    current_session_position += 1
+
+        sessions[match_id] = (current_session_id, current_session_position)
+        previous_game_date = game_date
+
+    return sessions
+
+
+def _stats_dict_with_session(stats: ParticipantStats, session_map: dict[str, tuple[int, int]]) -> dict[str, Any]:
+    stats_dict = stats.model_dump()
+    session_values = session_map.get(stats.match_id)
+    if session_values:
+        stats_dict["session_id"] = session_values[0]
+        stats_dict["session_position"] = session_values[1]
+    return stats_dict
+
+
 def append_game_to_sheets(stats: ParticipantStats) -> None:
     """
     Appends a single game row to the Game Log sheet.
@@ -86,13 +137,14 @@ def append_game_to_sheets(stats: ParticipantStats) -> None:
         spreadsheet = client.open_by_key(GOOGLE_SPREADSHEET_ID)
         worksheet = spreadsheet.worksheet(SHEETS_GAME_LOG_TAB)
 
-        stats_dict = stats.model_dump()
+        session_map = _build_session_map()
+        stats_dict = _stats_dict_with_session(stats, session_map)
         row = [
             _format_value(stats_dict.get(field), fmt)
             for field, _, fmt in GAME_LOG_COLUMNS
         ]
 
-        worksheet.append_row(row, value_input_option="USER_ENTERED")
+        worksheet.append_row(row, value_input_option=ValueInputOption.user_entered)
         logger.info(f"Appended game {stats.match_id} to Sheets.")
 
     except gspread.exceptions.SpreadsheetNotFound:
@@ -127,7 +179,7 @@ def ensure_headers(tab_name: str = SHEETS_GAME_LOG_TAB) -> None:
     first_row = worksheet.row_values(1)
 
     if first_row != headers:
-        worksheet.update("A1", [headers])
+        worksheet.update(range_name="A1", values=[headers])
         logger.info(f"Headers written to '{tab_name}'.")
 
 
@@ -146,9 +198,10 @@ def bulk_push_games(stats_list: list[ParticipantStats]) -> None:
     except gspread.exceptions.APIError as e:
         _raise_actionable_api_error(e)
 
+    session_map = _build_session_map()
     rows = []
-    for stats in stats_list:
-        stats_dict = stats.model_dump()
+    for stats in sorted(stats_list, key=lambda s: s.game_date):
+        stats_dict = _stats_dict_with_session(stats, session_map)
         row = [
             _format_value(stats_dict.get(field), fmt)
             for field, _, fmt in GAME_LOG_COLUMNS
@@ -156,7 +209,7 @@ def bulk_push_games(stats_list: list[ParticipantStats]) -> None:
         rows.append(row)
 
     try:
-        worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+        worksheet.append_rows(rows, value_input_option=ValueInputOption.user_entered)
     except gspread.exceptions.APIError as e:
         _raise_actionable_api_error(e)
     logger.info(f"Bulk pushed {len(rows)} games to Sheets.")
