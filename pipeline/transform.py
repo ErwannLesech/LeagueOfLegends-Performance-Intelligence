@@ -22,6 +22,21 @@ QUEUE_NAMES = {
 }
 
 
+def classify_match_type(raw_match: dict) -> str:
+    """
+    Classify a Riot match into a normalized category used by DB/Sheets.
+    """
+    info = raw_match.get("info", {})
+    queue_id = info.get("queueId", 0)
+    game_type = info.get("gameType", "")
+
+    if queue_id == 420:
+        return "ranked_solo_duo"
+    if queue_id == 440:
+        return "ranked_flex"
+    return "other"
+
+
 def extract_participant_stats(raw_match: dict, puuid: str) -> ParticipantStats:
     """
     Extract stats for our summoner from a raw MATCH-V5 response.
@@ -56,6 +71,7 @@ def extract_participant_stats(raw_match: dict, puuid: str) -> ParticipantStats:
 
     # Team composition (for context)
     queue_id = info.get("queueId", 0)
+    match_type = classify_match_type(raw_match)
 
     k = our_p["kills"]
     d = our_p["deaths"]
@@ -66,6 +82,7 @@ def extract_participant_stats(raw_match: dict, puuid: str) -> ParticipantStats:
         game_date=game_date,
         patch=patch,
         queue_id=queue_id,
+        match_type=match_type,
         duration_seconds=info["gameDuration"],
 
         champion_id=our_p["championId"],

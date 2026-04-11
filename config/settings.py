@@ -70,6 +70,13 @@ QUEUE_ARAM = 450
 
 TRACKED_QUEUES = [QUEUE_RANKED_SOLO, QUEUE_RANKED_FLEX, QUEUE_NORMAL_DRAFT]
 
+# Match categories tracked by watcher/backfill after fetching raw games.
+# Possible values currently produced by pipeline.transform.classify_match_type:
+# - ranked_solo_duo
+# - ranked_flex
+# - other
+TRACKED_MATCH_TYPES = ["ranked_solo_duo", "ranked_flex"]
+
 # Champions mid pool (used for filtering/alerts)
 MID_POOL = ["Orianna", "Ahri", "Galio", "Mel", "Anivia"]
 

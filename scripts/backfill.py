@@ -1,11 +1,11 @@
 """
-Backfill script — imports your last N ranked games into the DB and Sheets.
+Backfill script — imports your last N tracked games into the DB and Sheets.
 Run once after setup to populate historical data.
 
 Usage:
-    python scripts/backfill.py              # Last 20 ranked solo games
+    python scripts/backfill.py              # Last 20 tracked games (solo/flex)
     python scripts/backfill.py --count 100  # Last 100
-    python scripts/backfill.py --queue 420  # Ranked solo only (default)
+    python scripts/backfill.py --queue 420  # Ranked solo only
     python scripts/backfill.py --queue 0    # All queues
     python scripts/backfill.py --db-only    # Skip Sheets push
 """
@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config.settings import SUMMONER_NAME, SUMMONER_TAG, QUEUE_RANKED_SOLO
+from config.settings import SUMMONER_NAME, SUMMONER_TAG, TRACKED_MATCH_TYPES
 from collector.riot_client import RiotClient, RiotAPIError
 from collector.models import ParticipantStats
 from pipeline.transform import extract_participant_stats
@@ -93,11 +93,18 @@ def run_backfill(count: int, queue_id: int | None, skip_sheets: bool) -> None:
         try:
             raw = client.get_match(match_id)
             stats = extract_participant_stats(raw, puuid)
+
+            if stats.match_type not in TRACKED_MATCH_TYPES:
+                logger.info(
+                    f"  Skipped (untracked match_type={stats.match_type})"
+                )
+                continue
+
             upsert_game(stats)
             processed.append(stats)
             logger.info(
                 f"  {stats.champion_name} vs {stats.opponent_champion_name} "
-                f"— {stats.result} — {stats.kda_str}"
+                f"— {stats.result} — {stats.kda_str} — {stats.match_type}"
             )
         except RiotAPIError as e:
             logger.error(f"  API error: {e}")
@@ -123,7 +130,7 @@ def run_backfill(count: int, queue_id: int | None, skip_sheets: bool) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Backfill historical LoL games")
     parser.add_argument("--count",   type=int, default=20, help="Number of games to fetch")
-    parser.add_argument("--queue",   type=int, default=420, help="Queue ID (420=ranked solo, 0=all)")
+    parser.add_argument("--queue",   type=int, default=0, help="Queue ID (420=ranked solo, 440=ranked flex, 0=all)")
     parser.add_argument("--db-only", action="store_true", help="Skip Google Sheets push")
     args = parser.parse_args()
 

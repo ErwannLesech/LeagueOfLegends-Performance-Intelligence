@@ -25,7 +25,7 @@ schedule==1.2.1
 # Analysis
 numpy==1.26.4
 scipy==1.12.0
-scikit-learn==1.4.1
+scikit-learn==1.4.2
 matplotlib==3.8.3
 seaborn==0.13.2
 
@@ -38,6 +38,3 @@ pytest==8.0.2
 black==24.2.0
 ruff==0.3.0
 
-SQLAlchemy==2.0.28
-dotenv==0.19.0
-pydantic==2.6.0

@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
     SUMMONER_NAME, SUMMONER_TAG,
     WATCHER_POLL_INTERVAL, WATCHER_MATCH_COUNT,
-    TRACKED_QUEUES, LOG_LEVEL,
+    TRACKED_MATCH_TYPES, LOG_LEVEL,
 )
 from collector.riot_client import RiotClient, RiotAPIError
 from collector.models import ParticipantStats
@@ -90,15 +90,14 @@ class GameWatcher:
     def _fetch_new_matches(self) -> list[str]:
         """Returns match IDs completed since last poll, not yet in DB."""
         new_ids = []
-        for queue_id in TRACKED_QUEUES:
-            ids = self.client.get_match_ids(
-                puuid=self.puuid,
-                queue=queue_id,
-                count=WATCHER_MATCH_COUNT,
-            )
-            for mid in ids:
-                if mid not in self._known_match_ids:
-                    new_ids.append(mid)
+        ids = self.client.get_match_ids(
+            puuid=self.puuid,
+            queue=None,
+            count=WATCHER_MATCH_COUNT,
+        )
+        for mid in ids:
+            if mid not in self._known_match_ids:
+                new_ids.append(mid)
         return list(set(new_ids))
 
     def _process_match(self, match_id: str) -> None:
@@ -107,6 +106,13 @@ class GameWatcher:
         try:
             raw = self.client.get_match(match_id)
             stats: ParticipantStats = extract_participant_stats(raw, self.puuid)
+
+            if stats.match_type not in TRACKED_MATCH_TYPES:
+                logger.info(
+                    f"Skipping {match_id}: untracked match_type={stats.match_type}"
+                )
+                self._known_match_ids.add(match_id)
+                return
 
             # Persist to DB
             upsert_game(stats)

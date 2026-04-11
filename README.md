@@ -129,7 +129,7 @@ python -c "from pipeline.load_db import init_db; init_db(); print('DB OK')"
 ### Backfill — importer l'historique
 
 ```bash
-# 20 dernières games ranked solo (défaut)
+# 20 dernières games suivies (ranked solo/duo + ranked flex)
 python scripts/backfill.py
 
 # 100 dernières games
@@ -194,7 +194,7 @@ Chaque game insérée en DB contient :
 
 | Catégorie | Champs |
 |-----------|--------|
-| Identification | match_id, game_date, patch, queue |
+| Identification | match_id, game_date, patch, queue, match_type |
 | Champion | champion_name, champion_level, role, lane, opponent_champion |
 | Résultat | win, result, duration |
 | KDA | kills, deaths, assists, kda_ratio, kill_participation |
@@ -204,6 +204,8 @@ Chaque game insérée en DB contient :
 | Objectifs | turrets, inhibitors, dragon_kills, baron_kills |
 
 Les champs manuels (mental_pregame, review, key_takeaway, etc.) restent vides et se remplissent directement dans Google Sheets ou dans le fichier Excel.
+
+`match_type` est normalisé côté pipeline: `ranked_solo_duo`, `ranked_flex`, `other`.
 
 ---
 

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS games (
     game_date                   TIMESTAMPTZ NOT NULL,
     patch                       VARCHAR(10),
     queue_id                    INTEGER,
+    match_type                  VARCHAR(30),
     duration_seconds            INTEGER,
     duration_min                FLOAT,
 

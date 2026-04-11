@@ -41,6 +41,7 @@ def init_db() -> None:
                     game_date                   TIMESTAMPTZ NOT NULL,
                     patch                       VARCHAR(10),
                     queue_id                    INTEGER,
+                    match_type                  VARCHAR(30),
                     duration_seconds            INTEGER,
                     duration_min                FLOAT,
 
@@ -100,6 +101,12 @@ def init_db() -> None:
                 );
             """))
 
+            # Backward-compatible migration for existing DBs.
+            conn.execute(text("""
+                ALTER TABLE games
+                ADD COLUMN IF NOT EXISTS match_type VARCHAR(30);
+            """))
+
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id      SERIAL PRIMARY KEY,
@@ -148,7 +155,7 @@ def upsert_game(stats: ParticipantStats) -> None:
     engine = _get_engine()
     sql = text("""
         INSERT INTO games (
-            match_id, game_date, patch, queue_id, duration_seconds, duration_min,
+            match_id, game_date, patch, queue_id, match_type, duration_seconds, duration_min,
             champion_name, champion_id, champion_level, role, lane,
             opponent_champion_name, opponent_champion_id,
             win, result, kills, deaths, assists, kda_str, kda_ratio, kill_participation,
@@ -158,7 +165,7 @@ def upsert_game(stats: ParticipantStats) -> None:
             first_blood_kill, first_blood_assist,
             turrets_destroyed, inhibitors_destroyed, dragon_kills, baron_kills
         ) VALUES (
-            :match_id, :game_date, :patch, :queue_id, :duration_seconds, :duration_min,
+            :match_id, :game_date, :patch, :queue_id, :match_type, :duration_seconds, :duration_min,
             :champion_name, :champion_id, :champion_level, :role, :lane,
             :opponent_champion_name, :opponent_champion_id,
             :win, :result, :kills, :deaths, :assists, :kda_str, :kda_ratio, :kill_participation,

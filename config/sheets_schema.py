@@ -33,6 +33,7 @@ def _date(v: Any) -> str:
 
 GAME_LOG_COLUMNS: list[tuple[str, str, Callable | None]] = [
     ("game_date",           "Date",                  _date),
+    ("match_type",          "Type de partie",        None),
     ("session_id",          "Session #",              None),
     ("champion_name",       "Champion joué",          None),
     ("opponent_champion_name", "Adversaire mid",       None),

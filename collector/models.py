@@ -44,6 +44,7 @@ class ParticipantStats(BaseModel):
     game_date: datetime
     patch: str
     queue_id: int
+    match_type: str
     duration_seconds: int
 
     # Champion
