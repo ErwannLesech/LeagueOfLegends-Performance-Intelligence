@@ -1,250 +1,169 @@
 # LoL Tracker
 
-Suivi automatisé des parties League of Legends via l'API Riot Games.  
-Pipeline Python → PostgreSQL → Google Sheets → Looker Studio.
-
----
+Suivi automatique des parties League of Legends avec pipeline Python -> PostgreSQL -> Google Sheets.
 
 ## Stack
 
 | Composant | Techno |
 |-----------|--------|
 | Collecte | Python 3.11 + Riot API (MATCH-V5) |
-| Base de données | PostgreSQL 16 (Docker) |
+| Base de donnees | PostgreSQL 16 (Docker) |
 | Sync | Google Sheets via service account |
 | BI | Looker Studio (connecteur PostgreSQL) |
 | Analyse | Jupyter + pandas + seaborn |
-| Scheduling (Windows) | Task Scheduler + `schedule` |
-
----
+| Scheduling Windows | Task Scheduler |
 
 ## Structure
 
-```
-lol-tracker/
+```text
+LeagueOfLegends-Performance-Intelligence/
 ├── collector/
-│   ├── watcher.py          # Polling loop — détecte nouvelles games
-│   ├── riot_client.py      # Wrapper Riot API (MATCH-V5, SUMMONER-V4, etc.)
-│   ├── models.py           # Pydantic models (ParticipantStats, MatchSummary)
-│   └── rate_limiter.py     # Rate limiter 90 req/120s (clé dev)
-│
+│   ├── watcher.py
+│   ├── riot_client.py
+│   ├── models.py
+│   └── rate_limiter.py
 ├── pipeline/
-│   ├── transform.py        # Raw API response → ParticipantStats
-│   ├── load_db.py          # Upsert PostgreSQL (idempotent)
-│   ├── load_sheets.py      # Push vers Google Sheets
-│   └── patch_meta.py       # Fetch Data Dragon (méta patch)
-│
+│   ├── transform.py
+│   ├── load_db.py
+│   ├── load_sheets.py
+│   └── patch_meta.py
 ├── analysis/
 │   ├── notebooks/
-│   │   ├── 01_eda.ipynb              # Vue d'ensemble + winrate trends
-│   │   ├── 02_matchup_stats.ipynb    # Heatmap matchups
-│   │   └── 03_draft_model_prep.ipynb # Feature engineering + scoring function
 │   └── queries/
-│       ├── winrate_by_champion.sql   # Pour Looker Studio
-│       ├── matchup_matrix.sql
-│       └── session_trends.sql
-│
 ├── config/
-│   ├── settings.py         # Config centrale (lit .env)
-│   └── sheets_schema.py    # Mapping colonnes DB ↔ Google Sheets
-│
+│   ├── settings.py
+│   └── sheets_schema.py
 ├── scripts/
-│   ├── backfill.py         # Import historique (dernières N games)
-│   ├── setup_windows_task.ps1  # Enregistre le watcher au démarrage Windows
-│   └── sql/init_schema.sql # Schéma PostgreSQL (auto-chargé par Docker)
-│
-├── docker-compose.yml      # PostgreSQL + pgAdmin
+│   ├── backfill.py
+│   ├── setup_windows_task.ps1
+│   └── sql/init_schema.sql
+├── docker-compose.yml
 ├── requirements.txt
-└── .env.example
+├── start_watcher.bat
+└── README.md
 ```
 
----
+## Prerequis
 
-## Installation
-
-### 1. Prérequis
-
+- Windows 10/11
 - Python 3.11+
-- Docker + Docker Compose
-- Un compte Riot Developer : https://developer.riotgames.com
-- Un Google Sheet partagé avec un compte de service (voir section Google Sheets)
+- Docker Desktop (avec Docker Compose)
 
-### 2. Cloner et configurer
-
-```bash
-git clone https://github.com/TON_USERNAME/lol-tracker.git
-cd lol-tracker
-
-cp .env.example .env
-# Éditer .env avec ta clé API, ton summoner name, etc.
-```
-
-### 3. Environnement Python
-
-```bash
-python -m venv .venv
-
-# Linux/macOS
-source .venv/bin/activate
-
-# Windows
-.venv\Scripts\activate
-
-pip install -r requirements.txt
-```
-
-### 4. Démarrer la base de données
-
-```bash
-docker-compose up -d
-```
-
-PostgreSQL disponible sur `localhost:5432`.  
-pgAdmin (interface web) sur `http://localhost:5050` — identifiants dans `docker-compose.yml`.
-
-Le schéma SQL est chargé automatiquement au premier démarrage via `scripts/sql/init_schema.sql`.
-
-### 5. Vérifier la connexion DB
-
-```bash
-python -c "from pipeline.load_db import init_db; init_db(); print('DB OK')"
-```
-
----
-
-## Configuration Google Sheets
-
-1. Aller sur [console.cloud.google.com](https://console.cloud.google.com)
-2. Créer un projet → activer **Google Sheets API** + **Google Drive API**
-3. Créer un compte de service → télécharger le JSON → sauvegarder en `service_account.json` à la racine (fichier ignoré par `.gitignore`)
-4. Ouvrir ton Google Sheet → Partager avec l'email du compte de service (rôle : Éditeur)
-5. Copier l'ID du sheet (dans l'URL : `/d/<ID>/edit`) dans `.env` → `GOOGLE_SPREADSHEET_ID`
-
-⚠️ Le document cible doit être un **Google Sheet natif** (pas un fichier Excel `.xlsx` uploadé dans Drive).
-
----
-
-## Utilisation
-
-### Backfill — importer l'historique
-
-```bash
-# 20 dernières games suivies (ranked solo/duo + ranked flex)
-python scripts/backfill.py
-
-# 100 dernières games
-python scripts/backfill.py --count 100
-
-# Toutes queues
-python scripts/backfill.py --count 50 --queue 0
-
-# Sans push Sheets (DB seulement)
-python scripts/backfill.py --db-only
-```
-
-### Watcher — surveillance en temps réel
-
-```bash
-# Linux (foreground)
-python -m collector.watcher
-
-# Windows (background, pas de console)
-pythonw -m collector.watcher
-```
-
-Le watcher poll toutes les `WATCHER_POLL_INTERVAL` secondes (défaut : 5 min).  
-Il détecte automatiquement les nouvelles games et les insère en DB + Sheets.
-
-### Enregistrer le watcher au démarrage Windows
-
-Lancer PowerShell en administrateur puis :
+## Setup rapide
 
 ```powershell
-# Adapter le chemin repo dans le script d'abord
-powershell -ExecutionPolicy Bypass -File scripts\setup_windows_task.ps1
+git clone https://github.com/TON_USERNAME/lol-tracker.git
+cd lol-tracker
+copy .env.example .env # ou cp pour linux
 ```
 
-Le watcher démarrera automatiquement à chaque ouverture de session Windows.
+Puis editer `.env` avec vos valeurs (Riot API key, summoner, DB, Google Sheet).
 
-### Fetch méta patch (Data Dragon)
 
-```bash
-# Patch actuel
+Puis editer `.env` avec vos valeurs (Riot API key, summoner, DB, Google Sheet).
+
+## Demarrage de la base PostgreSQL
+
+```powershell
+docker compose up -d
+```
+
+Le schema est initialise automatiquement via `scripts/sql/init_schema.sql`.
+
+## Lancer le watcher manuellement
+
+### Option A - Avec venv (recommande)
+
+```powershell
+cd C:\Users\lesec\Desktop\LeagueOfLegends-Performance-Intelligence
+
+# Creer le venv si absent
+python -m venv .venv
+
+# Activer le venv
+.\.venv\Scripts\Activate.ps1
+
+# Installer les dependances
+python -m pip install -r requirements.txt
+
+# Lancer le watcher au premier plan
+python -m collector.watcher
+```
+
+### Option B - Sans venv
+
+```powershell
+cd C:\Users\lesec\Desktop\LeagueOfLegends-Performance-Intelligence
+python -m pip install -r requirements.txt
+python -m collector.watcher
+```
+
+## Lancer watcher.py en direct (equivalent)
+
+Si vous preferez lancer le fichier plutot que le module :
+
+```powershell
+python .\collector\watcher.py
+```
+
+## Faire tourner le watcher en continu au demarrage Windows
+
+Le projet inclut :
+- `start_watcher.bat` (creee/active le venv si besoin, installe les deps, puis lance `pythonw -m collector.watcher`)
+- `scripts/setup_windows_task.ps1` (cree la tache planifiee Windows)
+
+### 1. Executer le script de setup de la tache (une seule fois)
+
+Dans PowerShell en administrateur :
+
+```powershell
+cd C:\Users\lesec\Desktop\LeagueOfLegends-Performance-Intelligence
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows_task.ps1
+```
+
+### 2. Demarrer la tache immediatement (optionnel)
+
+```powershell
+Start-ScheduledTask -TaskName "LoL-Tracker-Watcher"
+```
+
+### 3. Verifier et controler la tache
+
+```powershell
+# Voir la tache
+Get-ScheduledTask -TaskName "LoL-Tracker-Watcher"
+
+# Arreter la tache
+Stop-ScheduledTask -TaskName "LoL-Tracker-Watcher"
+```
+
+Au prochain logon Windows, le watcher redemarrera automatiquement en arriere-plan.
+
+## Commandes utiles
+
+```powershell
+# Backfill des 100 dernieres games
+python .\scripts\backfill.py --count 100
+
+# Patch meta actuel
 python -m pipeline.patch_meta
 
-# Patch spécifique
-python -m pipeline.patch_meta --patch 14.8
+# Ouvrir les notebooks
+jupyter notebook .\analysis\notebooks\
 ```
 
-### Notebooks
+Alternatives Linux:
 
 ```bash
-jupyter notebook analysis/notebooks/
+# Backfill des 100 dernieres games
+python3 ./scripts/backfill.py --count 100
+
+# Patch meta actuel
+python3 -m pipeline.patch_meta
+
+# Ouvrir les notebooks
+jupyter notebook ./analysis/notebooks/
 ```
-
-- `01_eda.ipynb` — winrate global, CS/min, corrélation mental/résultat
-- `02_matchup_stats.ipynb` — heatmap matchups, top matchups difficiles
-- `03_draft_model_prep.ipynb` — scoring function + préparation ML
-
----
-
-## Données collectées automatiquement
-
-Chaque game insérée en DB contient :
-
-| Catégorie | Champs |
-|-----------|--------|
-| Identification | match_id, game_date, patch, queue, match_type |
-| Champion | champion_name, champion_level, role, lane, opponent_champion |
-| Résultat | win, result, duration |
-| KDA | kills, deaths, assists, kda_ratio, kill_participation |
-| Farming | cs_total, cs_per_min, gold_earned, gold_per_min |
-| Vision | vision_score, wards_placed, wards_killed, control_wards |
-| Combat | damage_dealt, damage_taken, solo_kills, first_blood |
-| Objectifs | turrets, inhibitors, dragon_kills, baron_kills |
-
-Les champs manuels (mental_pregame, review, key_takeaway, etc.) restent vides et se remplissent directement dans Google Sheets ou dans le fichier Excel.
-
-`match_type` est normalisé côté pipeline: `ranked_solo_duo`, `ranked_flex`, `other`.
-
----
-
-## Looker Studio
-
-1. Ouvrir [lookerstudio.google.com](https://lookerstudio.google.com)
-2. Créer une source de données → **PostgreSQL**
-3. Host : `localhost` (ou IP de la machine qui héberge Docker)
-4. Port : `5432`, DB : `lol_tracker`, user/password dans `.env`
-5. Utiliser les requêtes SQL dans `analysis/queries/` comme **Custom Query**
-
-Les 3 requêtes disponibles :
-- `winrate_by_champion.sql` — stats globales par champion
-- `matchup_matrix.sql` — winrate par matchup
-- `session_trends.sql` — corrélations session / mental / performance
-
----
-
-## Roadmap
-
-- [x] Collecte automatique post-game (MATCH-V5)
-- [x] Stockage PostgreSQL (idempotent)
-- [x] Sync Google Sheets
-- [x] Backfill historique
-- [x] Notebooks EDA + matchup
-- [x] Scoring function draft (heuristique)
-- [ ] Scraping lolalytics pour méta counters en temps réel
-- [ ] Modèle ML draft recommendation (XGBoost / LogReg)
-- [ ] Bot Discord (notifications post-game + commande `/pick`)
-
----
-
-## Notes clé dev Riot
-
-La clé de développement expire toutes les **24 heures** et est limitée à **100 req/2min**.  
-Le rate limiter intégré reste conservativement en dessous de ce seuil.  
-Pour un usage continu, soumettre une **Personal App** sur le portail Riot Developer.
-
----
 
 ## Licence
 

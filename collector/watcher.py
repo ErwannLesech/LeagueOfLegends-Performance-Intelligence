@@ -70,7 +70,12 @@ class GameWatcher:
         account = self.client.get_account_by_riot_id(SUMMONER_NAME, SUMMONER_TAG)
         self.puuid = account["puuid"]
         summoner = self.client.get_summoner_by_puuid(self.puuid)
-        self.summoner_id = summoner["id"]
+        self.summoner_id = summoner.get("id")
+        if not self.summoner_id:
+            logger.warning(
+                "Summoner ID not returned by SUMMONER-V4; "
+                "active-game detection disabled, match polling still enabled."
+            )
 
         # Load already-known match IDs from DB to avoid reprocessing
         self._known_match_ids = get_known_match_ids()
@@ -81,8 +86,10 @@ class GameWatcher:
 
     def _check_active_game(self) -> bool:
         """Returns True if summoner is currently in a game."""
+        if not self.summoner_id:
+            return False
         try:
-            active = self.client.get_active_game(self.puuid)
+            active = self.client.get_active_game(self.summoner_id)
             return active is not None
         except RiotAPIError:
             return False

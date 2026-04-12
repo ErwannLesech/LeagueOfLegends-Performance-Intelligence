@@ -114,12 +114,12 @@ class RiotClient:
 
     # ─── SPECTATOR-V5 ────────────────────────────────────────────────────────
 
-    def get_active_game(self, puuid: str) -> Optional[dict]:
+    def get_active_game(self, summoner_id: str) -> Optional[dict]:
         """
         Returns current game data if summoner is in game, None otherwise.
         Useful for the watcher to detect game start.
         """
-        url = f"{RIOT_BASE_URL}/lol/spectator/v5/active-games/by-summoner/{puuid}"
+        url = f"{RIOT_BASE_URL}/lol/spectator/v5/active-games/by-summoner/{summoner_id}"
         try:
             return self._get(url)
         except RiotAPIError as e:

@@ -6,9 +6,13 @@
 #   powershell -ExecutionPolicy Bypass -File setup_windows_task.ps1
 
 $TaskName = "LoL-Tracker-Watcher"
-$RepoPath = "$env:USERPROFILE\lol-tracker"   # <-- Adapter si ton repo est ailleurs
-$BatFile  = "$RepoPath\start_watcher.bat"
-$LogDir   = "$RepoPath\logs"
+$RepoPath = Split-Path -Parent $PSScriptRoot
+$BatFile  = Join-Path $RepoPath "start_watcher.bat"
+$LogDir   = Join-Path $RepoPath "logs"
+
+if (-not (Test-Path $BatFile)) {
+    throw "start_watcher.bat introuvable: $BatFile"
+}
 
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
