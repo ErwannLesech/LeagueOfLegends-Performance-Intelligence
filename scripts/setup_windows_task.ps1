@@ -45,7 +45,7 @@ Register-ScheduledTask `
     -Trigger $Trigger `
     -Settings $Settings `
     -RunLevel Highest `
-    -Description "LoL Tracker — démarre le watcher Riot API au démarrage Windows"
+    -Description "LoL Tracker - démarre le watcher Riot API au démarrage Windows"
 
 Write-Host ""
 Write-Host "Tâche '$TaskName' enregistrée."
@@ -57,4 +57,4 @@ Write-Host ""
 Write-Host "Pour arrêter :"
 Write-Host "  Stop-ScheduledTask -TaskName '$TaskName'"
 Write-Host ""
-Write-Host "Logs : $LogDir\watcher.log"
+Write-Host ("Logs : " + (Join-Path $LogDir "watcher.log"))

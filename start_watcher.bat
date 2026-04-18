@@ -19,6 +19,20 @@ call .venv\Scripts\activate.bat
 :: Installe / met à jour les dépendances silencieusement
 pip install -r requirements.txt --quiet
 
+:: Vérifie que Docker est prêt
+echo [LoL Tracker] Waiting for Docker...
+
+:wait_docker
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    timeout /t 5 >nul
+    goto wait_docker
+)
+
+echo [LoL Tracker] Docker is ready!
+
+👉 À placer avant :
+
 :: Lance le watcher sans fenêtre console
 echo [LoL Tracker] Starting watcher...
 start /B pythonw -m collector.watcher
